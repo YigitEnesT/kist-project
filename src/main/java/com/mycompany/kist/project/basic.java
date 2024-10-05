@@ -8,7 +8,6 @@ package com.mycompany.kist.project;
  *
  * @author yetun
  */
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -26,6 +25,7 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 
 public class basic {
+
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?cwid=2";
     private static final String KEYWORD = "Lenovo";
 
@@ -38,7 +38,7 @@ public class basic {
         int currentPage = 1;
         List<Book> books = new ArrayList<>();
         int totalPagesFetched = 0; // Çekilen toplam sayfa sayısını tutacak
-
+        int count = 1;
         while (true) {
             try {
                 String url = BASE_URL + "&keyword=" + KEYWORD.replace(" ", "+") + "&tokat_search_field=1&order=0&page=" + currentPage;
@@ -52,15 +52,18 @@ public class basic {
 
                 for (Element table : tables) {
                     Elements rows = table.select("tr"); // Her bir satırı seç
+                    System.out.println(count);
+                    count++;
+                    Book book = new Book();
                     for (Element row : rows) {
                         Elements headers = row.select("td.result_headers"); // Başlıkları seç
                         Elements data = row.select("td:not(.result_headers)"); // Başlığa bağlı veriyi seç
                         if (!headers.isEmpty() && !data.isEmpty()) {
-                            Book book = new Book(); // Yeni Book nesnesi oluştur
+
                             for (int i = 0; i < headers.size(); i++) {
                                 String headerText = headers.get(i).text(); // Başlık metni
                                 String dataText = data.get(i).text(); // Veri metni
-                                System.out.println("Header - Data text : "+headerText + " : " + dataText);
+                                System.out.println("Header - Data text : " + headerText + " : " + dataText);
                                 // Book nesnesini doldur
                                 switch (headerText) {
                                     case "Materyal Türü:":
@@ -88,13 +91,12 @@ public class basic {
                                         book.setKutuphane(dataText);
                                         break;
                                 }
-                                
-                                
                             }
-                            books.add(book); // Book nesnesini listeye ekle
+                            
                             pageHasBooks = true; // Sayfada en az bir kitap var
                         }
                     }
+                    books.add(book); // Her kitabı listeye ekle
                     System.out.println("\n****************************\n");
                 }
 
@@ -116,15 +118,15 @@ public class basic {
                 break; // Başka bir hata olursa döngüyü bitir
             }
         }
-        System.out.println(books.size());
-        int count = 1 ;
+        System.out.println("Books size:" +books.size());
+
         // Verileri Elasticsearch'e gönder
         for (Book book : books) {
             IndexRequest<Book> indexRequest = IndexRequest.of(i -> i
                     .index("lenovo") // Daha önce oluşturduğunuz index            
                     .document(book) // Book nesnesini gönder
             );
-            System.out.println(book.getAllData() + count +"\n*********\n");
+            System.out.println(book.getAllData() + count + "\n*********\n");
             count++;
             try {
                 IndexResponse indexResponse = client.index(indexRequest);
@@ -132,7 +134,6 @@ public class basic {
                 System.out.println("Hata oluştu: " + e.getMessage());
             }
         }
-
         // Bağlantıları kapat
         try {
             transport.close();
