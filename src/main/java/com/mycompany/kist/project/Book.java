@@ -1,17 +1,34 @@
 package com.mycompany.kist.project;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class Book {
-    private String materyalTuru;
-    private String baslik;
-    private String yazar;
-    private Integer yayinYili;
-    private String basi;
-    private String dil;
-    private String konu;
-    private String kutuphane;
+
+    @JsonProperty("materyal_turu")
+    private String materyalTuru = null;
+
+    @JsonProperty("baslik")
+    private String baslik = null;
+
+    @JsonProperty("yazar")
+    private String yazar = null;
+
+    @JsonProperty("yayin_yili")
+    private Integer yayinYili = null;
+
+    @JsonProperty("basi")
+    private String basi = null;
+
+    @JsonProperty("dil")
+    private String dil = null;
+
+    @JsonProperty("konu")
+    private String konu = null;
+
+    @JsonProperty("kutuphane")
+    private String kutuphane = null;
 
     // Getters ve Setters
-
     public String getMateryalTuru() {
         return materyalTuru;
     }
@@ -75,4 +92,21 @@ public class Book {
     public void setKutuphane(String kutuphane) {
         this.kutuphane = kutuphane;
     }
+
+    public String getAllData() {
+        StringBuilder sb = new StringBuilder();
+
+        // Tüm alanların bilgilerini ekle
+        sb.append("Materyal Türü: ").append(materyalTuru).append("\n");
+        sb.append("Başlık: ").append(baslik).append("\n");
+        sb.append("Yazar: ").append(yazar).append("\n");
+        sb.append("Yayın Yılı: ").append(yayinYili).append("\n");
+        sb.append("Bası: ").append(basi).append("\n");
+        sb.append("Dil: ").append(dil).append("\n");
+        sb.append("Konu: ").append(konu).append("\n");
+        sb.append("Kütüphane: ").append(kutuphane).append("\n");
+
+        return sb.toString();
+    }
+
 }

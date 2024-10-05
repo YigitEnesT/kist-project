@@ -8,12 +8,12 @@ package com.mycompany.kist.project;
  *
  * @author yetun
  */
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import java.io.IOException;
-
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
@@ -26,10 +26,8 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 
 public class basic {
-
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?cwid=2";
-    private static final String KEYWORD = "Ankara Tarihi";
-    private static final int MAX_PAGES = 512; // Toplam sayfa sayısı
+    private static final String KEYWORD = "Lenovo";
 
     public static void main(String[] args) {
         // Elasticsearch'e bağlan
@@ -39,8 +37,9 @@ public class basic {
 
         int currentPage = 1;
         List<Book> books = new ArrayList<>();
+        int totalPagesFetched = 0; // Çekilen toplam sayfa sayısını tutacak
 
-        while (currentPage <= MAX_PAGES) {
+        while (true) {
             try {
                 String url = BASE_URL + "&keyword=" + KEYWORD.replace(" ", "+") + "&tokat_search_field=1&order=0&page=" + currentPage;
                 System.out.println("Fetching: " + url);
@@ -53,73 +52,82 @@ public class basic {
 
                 for (Element table : tables) {
                     Elements rows = table.select("tr"); // Her bir satırı seç
-
                     for (Element row : rows) {
                         Elements headers = row.select("td.result_headers"); // Başlıkları seç
                         Elements data = row.select("td:not(.result_headers)"); // Başlığa bağlı veriyi seç
-
                         if (!headers.isEmpty() && !data.isEmpty()) {
                             Book book = new Book(); // Yeni Book nesnesi oluştur
                             for (int i = 0; i < headers.size(); i++) {
                                 String headerText = headers.get(i).text(); // Başlık metni
                                 String dataText = data.get(i).text(); // Veri metni
-
+                                System.out.println("Header - Data text : "+headerText + " : " + dataText);
                                 // Book nesnesini doldur
                                 switch (headerText) {
-                                    case "Materyal Türü":
+                                    case "Materyal Türü:":
                                         book.setMateryalTuru(dataText);
                                         break;
-                                    case "Başlık":
+                                    case "Başlık:":
                                         book.setBaslik(dataText);
                                         break;
-                                    case "Yazar":
+                                    case "Yazar:":
                                         book.setYazar(dataText);
                                         break;
-                                    case "Yayın Yılı":
+                                    case "Yayın Yılı:":
                                         book.setYayinYili(Integer.parseInt(dataText));
                                         break;
-                                    case "Bası":
+                                    case "Bası:":
                                         book.setBasi(dataText);
                                         break;
-                                    case "Dil":
+                                    case "Dil:":
                                         book.setDil(dataText);
                                         break;
-                                    case "Konu":
+                                    case "Konu:":
                                         book.setKonu(dataText);
                                         break;
-                                    case "Kütüphane":
+                                    case "Kütüphane:":
                                         book.setKutuphane(dataText);
                                         break;
                                 }
+                                
+                                
                             }
                             books.add(book); // Book nesnesini listeye ekle
                             pageHasBooks = true; // Sayfada en az bir kitap var
                         }
                     }
+                    System.out.println("\n****************************\n");
                 }
 
-                // Eğer sayfada hiç kitap yoksa, daha fazla sayfa kalmadığı anlamına gelebilir
-                if (!pageHasBooks) {
-                    break; // Sayfada kitap yoksa döngüyü kır
+                // Eğer sayfada kitap yoksa veya 3 sayfa çekildiyse döngüyü kır
+                if (!pageHasBooks || totalPagesFetched == 2) {
+                    System.out.println("No books found on page " + currentPage + " or fetched 3 pages. Exiting.");
+                    break;
                 }
 
-                currentPage++; // Sonraki sayfaya geç
+                // Sayfa sayısını artır
+                currentPage++;
+                totalPagesFetched++; // Çekilen toplam sayfa sayısını artır
+
+            } catch (IOException e) {
+                System.out.println("Connection error: " + e.getMessage());
+                break; // Bağlantı hatası olursa döngüyü bitir
             } catch (Exception e) {
                 e.printStackTrace();
-                break;  // Bir hata olursa döngüyü bitir
+                break; // Başka bir hata olursa döngüyü bitir
             }
         }
-
+        System.out.println(books.size());
+        int count = 1 ;
         // Verileri Elasticsearch'e gönder
         for (Book book : books) {
             IndexRequest<Book> indexRequest = IndexRequest.of(i -> i
-                    .index("books") // Daha önce oluşturduğunuz index            
+                    .index("lenovo") // Daha önce oluşturduğunuz index            
                     .document(book) // Book nesnesini gönder
             );
-
+            System.out.println(book.getAllData() + count +"\n*********\n");
+            count++;
             try {
                 IndexResponse indexResponse = client.index(indexRequest);
-                System.out.println("Indexed document with id: " + indexResponse.id());
             } catch (Exception e) {
                 System.out.println("Hata oluştu: " + e.getMessage());
             }

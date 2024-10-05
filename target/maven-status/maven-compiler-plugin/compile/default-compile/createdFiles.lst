@@ -1,4 +1,5 @@
 com\mycompany\kist\project\Main.class
 com\mycompany\kist\project\ElasticSearchConfig.class
 com\mycompany\kist\project\LibraryScraper.class
+basic.class
 com\mycompany\kist\project\Book.class
