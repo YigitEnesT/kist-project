@@ -1,34 +1,17 @@
 package com.mycompany.kist.project;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 public class Book {
+    private String materyalTuru;
+    private String baslik;
+    private String yazar;
+    private String yayinYili;
+    private String basi;
+    private String dil;
+    private String konu;
+    private String kutuphane;
 
-    @JsonProperty("materyal_turu")
-    private String materyalTuru = null;
+    // Getters and Setters
 
-    @JsonProperty("baslik")
-    private String baslik = null;
-
-    @JsonProperty("yazar")
-    private String yazar = null;
-
-    @JsonProperty("yayin_yili")
-    private String yayinYili = null;
-
-    @JsonProperty("basi")
-    private String basi = null;
-
-    @JsonProperty("dil")
-    private String dil = null;
-
-    @JsonProperty("konu")
-    private String konu = null;
-
-    @JsonProperty("kutuphane")
-    private String kutuphane = null;
-
-    // Getters ve Setters
     public String getMateryalTuru() {
         return materyalTuru;
     }
