@@ -27,7 +27,7 @@ import org.elasticsearch.client.RestClient;
 public class basic {
 
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?cwid=2";
-    private static final String KEYWORD = "Lenovo";
+    private static final String KEYWORD = "1*";
 
     public static void main(String[] args) {
         // Elasticsearch'e bağlan
@@ -42,7 +42,7 @@ public class basic {
         while (true) {
             try {
                 String url = BASE_URL + "&keyword=" + KEYWORD.replace(" ", "+") + "&tokat_search_field=1&order=0&page=" + currentPage;
-                System.out.println("Fetching: " + url);
+//                System.out.println("Fetching: " + url);
                 Document doc = Jsoup.connect(url).get();
 
                 // Tüm tabloları seç
@@ -63,7 +63,7 @@ public class basic {
                             for (int i = 0; i < headers.size(); i++) {
                                 String headerText = headers.get(i).text(); // Başlık metni
                                 String dataText = data.get(i).text(); // Veri metni
-                                System.out.println("Header - Data text : " + headerText + " : " + dataText);
+//                                System.out.println("Header - Data text : " + headerText + " : " + dataText);
                                 // Book nesnesini doldur
                                 switch (headerText) {
                                     case "Materyal Türü:":
@@ -91,18 +91,22 @@ public class basic {
                                         book.setKutuphane(dataText);
                                         break;
                                 }
-                            }
-                            
-                            pageHasBooks = true; // Sayfada en az bir kitap var
+                                pageHasBooks = true;
+                            }              
                         }
                     }
+                    if(book.getBaslik().isEmpty()){
+                        pageHasBooks = false;
+                        break; // While döngüsünden çık                        
+                    }
+                        
                     books.add(book); // Her kitabı listeye ekle
-                    System.out.println("\n****************************\n");
+//                    System.out.println("\n****************************\n");
                 }
 
                 // Eğer sayfada kitap yoksa veya 3 sayfa çekildiyse döngüyü kır
-                if (!pageHasBooks || totalPagesFetched == 2) {
-                    System.out.println("No books found on page " + currentPage + " or fetched 3 pages. Exiting.");
+                if (!pageHasBooks) {
+                    System.out.println("No books found on page " + currentPage + ". Exiting.");
                     break;
                 }
 
@@ -123,11 +127,9 @@ public class basic {
         // Verileri Elasticsearch'e gönder
         for (Book book : books) {
             IndexRequest<Book> indexRequest = IndexRequest.of(i -> i
-                    .index("lenovo") // Daha önce oluşturduğunuz index            
+                    .index("books") // Daha önce oluşturduğunuz index            
                     .document(book) // Book nesnesini gönder
             );
-            System.out.println(book.getAllData() + count + "\n*********\n");
-            count++;
             try {
                 IndexResponse indexResponse = client.index(indexRequest);
             } catch (Exception e) {
