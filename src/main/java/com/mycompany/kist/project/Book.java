@@ -14,7 +14,7 @@ public class Book {
     private String yazar = null;
 
     @JsonProperty("yayin_yili")
-    private Integer yayinYili = null;
+    private String yayinYili = null;
 
     @JsonProperty("basi")
     private String basi = null;
@@ -53,11 +53,11 @@ public class Book {
         this.yazar = yazar;
     }
 
-    public Integer getYayinYili() {
+    public String getYayinYili() {
         return yayinYili;
     }
 
-    public void setYayinYili(Integer yayinYili) {
+    public void setYayinYili(String yayinYili) {
         this.yayinYili = yayinYili;
     }
 

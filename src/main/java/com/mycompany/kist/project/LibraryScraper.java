@@ -113,7 +113,7 @@ public class LibraryScraper {
                                     break;
                                 case "Yayın Yılı":
                                     try {
-                                        book.setYayinYili(Integer.parseInt(dataText));
+                                        book.setYayinYili(dataText);
                                     } catch (NumberFormatException e) {
                                         book.setYayinYili(null);
                                     }

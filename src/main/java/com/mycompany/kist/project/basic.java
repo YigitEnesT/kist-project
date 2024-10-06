@@ -27,7 +27,7 @@ import org.elasticsearch.client.RestClient;
 public class basic {
 
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?cwid=2";
-    private static final String KEYWORD = "1*";
+    private static final String KEYWORD = "Ankara Tarihi";
 
     public static void main(String[] args) {
         // Elasticsearch'e bağlan
@@ -76,7 +76,7 @@ public class basic {
                                         book.setYazar(dataText);
                                         break;
                                     case "Yayın Yılı:":
-                                        book.setYayinYili(Integer.parseInt(dataText));
+                                        book.setYayinYili(dataText);
                                         break;
                                     case "Bası:":
                                         book.setBasi(dataText);
@@ -127,7 +127,7 @@ public class basic {
         // Verileri Elasticsearch'e gönder
         for (Book book : books) {
             IndexRequest<Book> indexRequest = IndexRequest.of(i -> i
-                    .index("books") // Daha önce oluşturduğunuz index            
+                    .index("ankara") // Daha önce oluşturduğunuz index            
                     .document(book) // Book nesnesini gönder
             );
             try {
