@@ -1,5 +1,3 @@
-com\mycompany\kist\project\basic.class
-com\mycompany\kist\project\Main.class
-com\mycompany\kist\project\ElasticSearchConfig.class
-com\mycompany\kist\project\LibraryScraper.class
+com\mycompany\kist\project\Basic.class
 com\mycompany\kist\project\Book.class
+com\mycompany\kist\project\DynamicWebScraper.class
