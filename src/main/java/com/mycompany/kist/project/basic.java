@@ -12,6 +12,7 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.google.gson.JsonObject;
 import java.time.Duration;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
@@ -26,16 +27,14 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.TimeoutException; // Eklenen import
 
-public class Basic {
+public class basic {
 
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?";
-    //private static final List<String> KEYWORDS = Arrays.asList("1*", "2*", "3*", "4*", "5*", "6*", "7*", "8*");
-    private static final String KEYWORD = "1*";
-    private static final int TOTAL_PAGES = 1550;
-    private static final int LIBRARY_ID = 1091; //857
-    //private static final int LIBRARY_IDB = 1131;
-    //private static final int LIBRARY_IDC = 663;
+    private static final List<String> KEYWORDS = Arrays.asList("1*", "2*", "3*", "4*", "5*", "6*", "7*", "8*");
+    private static final int TOTAL_PAGES = 21;
+    private static final int[] LIBRARY_ID = {52, 53, 54, 55}; //857
     private static final int THREAD_COUNT = Runtime.getRuntime().availableProcessors() * 2;
     private static final int BATCH_SIZE = 500; // Elasticsearch'e gönderilecek batch boyutu
     private static final int WEBDRIVER_POOL_SIZE = THREAD_COUNT;
@@ -62,6 +61,9 @@ public class Basic {
 
             String pageSource = driver.getPageSource();
             return Jsoup.parse(pageSource);
+        } catch (TimeoutException e) {
+            // Beklenen element bulunamadı, null döndür
+            return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while borrowing WebDriver", e);
@@ -76,7 +78,12 @@ public class Basic {
         int attempt = 0;
         while (attempt < maxRetries) {
             try {
-                return fetchDocumentWithSelenium(url); // Selenium ile belgeyi çekin
+                Document doc = fetchDocumentWithSelenium(url); // Selenium ile belgeyi çekin
+                if (doc == null) {
+                    // Tablo bulunamadı, yeniden denemeyin
+                    return null;
+                }
+                return doc;
             } catch (IOException e) {
                 attempt++;
                 if (attempt >= maxRetries) {
@@ -139,81 +146,84 @@ public class Basic {
 
         indexingThread.start();
 
-        //for (String keyword : KEYWORDS) {
-        // Veri çekme görevlerini submit et
-        for (int currentPage = 1; currentPage <= TOTAL_PAGES; currentPage++) {
-            int page = currentPage;
-            count++;
-            executor.submit(() -> {
-                try {
-                    String url = BASE_URL + "&tokat_library%5B%5D=" + LIBRARY_ID + "&keyword=" + KEYWORD.replace(" ", "+") + "&tokat_search_field=1&order=0&page=" + page;
-                    Document doc = fetchDocumentWithRetries(url, 3, 5000); // 3 deneme, her deneme arasında 5 saniye bekleme
+        for (String keyword : KEYWORDS) {
+            // Veri çekme görevlerini submit et
+            for (int currentPage = 6434; currentPage <= TOTAL_PAGES; currentPage++) {
+                int page = currentPage;
+                count++;
+                executor.submit(() -> {
+                    // Lambda ifadesinin dışındaki keyword'a erişim sağlamak için final yap
+                    String finalKeyword = keyword;
+                    try {
+                        String libraries = urlWithLibraries(LIBRARY_ID);
+                        String url = BASE_URL + libraries + "&keyword=" + finalKeyword.replace(" ", "+") + "&tokat_search_field=1&order=0&page=" + page;
+                        Document doc = fetchDocumentWithRetries(url, 3, 5000); // 3 deneme, her deneme arasında 5 saniye bekleme
 
-                    // Tüm tabloları seç
-                    Elements tables = doc.select("td.result_headers_container table");
-
-                    for (Element table : tables) {
-                        Elements rows = table.select("tr"); // Her bir satırı seç
-                        Book book = new Book();
-                        boolean hasData = false;
-
-                        for (Element row : rows) {
-
-                            Elements headers = row.select("td.result_headers"); // Başlıkları seç
-                            Elements data = row.select("td:not(.result_headers)"); // Başlığa bağlı veriyi seç
-                            if (!headers.isEmpty() && !data.isEmpty()) {
-                                for (int i = 0; i < headers.size(); i++) {
-                                    String headerText = headers.get(i).text(); // Başlık metni
-                                    String dataText = data.get(i).text(); // Veri metni
-                                    // Book nesnesini doldur
-                                    switch (headerText) {
-                                        case "Materyal Türü:":
-                                            book.setMateryalTuru(dataText);
-                                            break;
-                                        case "Başlık:":
-                                            book.setBaslik(dataText);
-                                            break;
-                                        case "Yazar:":
-                                            book.setYazar(dataText);
-                                            break;
-                                        case "Yayın Yılı:":
-                                            book.setYayinYili(dataText);
-                                            break;
-                                        case "Bası:":
-                                            book.setBasi(dataText);
-                                            break;
-                                        case "Dil:":
-                                            book.setDil(dataText);
-                                            break;
-                                        case "Konu:":
-                                            book.setKonu(dataText);
-                                            break;
-                                        case "Kütüphane:":
-                                            book.setKutuphane(dataText);
-                                            break;
+                        // Tüm tabloları seç
+                        Elements tables = doc.select("td.result_headers_container table");
+                        JsonObject bookJson = new JsonObject();
+                        for (Element table : tables) {
+                            Elements rows = table.select("tr"); // Her bir satırı seç
+                            boolean hasData = false;
+                            
+                            for (Element row : rows) {
+                                
+                                Elements headers = row.select("td.result_headers"); // Başlıkları seç
+                                Elements data = row.select("td:not(.result_headers)"); // Başlığa bağlı veriyi seç
+                                
+                                
+                                if (!headers.isEmpty() && !data.isEmpty()) {
+                                    for (int i = 0; i < headers.size(); i++) {
+                                        String headerText = headers.get(i).text(); // Başlık metni
+                                        String dataText = data.get(i).text(); // Veri metni
+                                        // Book nesnesini doldur
+                                        //bookJson.put(headerText, dataText);
+//                                        switch (headerText) {
+//                                            case "Materyal Türü:":
+//                                                book.setMateryalTuru(dataText);
+//                                                break;
+//                                            case "Başlık:":
+//                                                book.setBaslik(dataText);
+//                                                break;
+//                                            case "Yazar:":
+//                                                book.setYazar(dataText);
+//                                                break;
+//                                            case "Yayın Yılı:":
+//                                                book.setYayinYili(dataText);
+//                                                break;
+//                                            case "Bası:":
+//                                                book.setBasi(dataText);
+//                                                break;
+//                                            case "Dil:":
+//                                                book.setDil(dataText);
+//                                                break;
+//                                            case "Konu:":
+//                                                book.setKonu(dataText);
+//                                                break;
+//                                            case "Kütüphane:":
+//                                                book.setKutuphane(dataText);
+//                                                break;
+//                                        }
+                                        hasData = true;
                                     }
-                                    hasData = true;
                                 }
                             }
+                            //queue.put(bookJson);
+
                         }
 
-                        if (hasData && !book.getBaslik().isEmpty()) {
-                            // Kitabı kuyruğa ekle
-                            queue.put(book);
-                        }
+                    } catch (IOException e) {
+                        System.out.println("Connection error on page " + page + ": " + e.getMessage());
+                    } catch (InterruptedException e) {
+                        System.out.println("Thread interrupted while processing page " + page);
+                        Thread.currentThread().interrupt();
+                    } catch (Exception e) {
+                        System.out.println("Unexpected error on page " + page + ": " + e.getMessage());
                     }
-
-                } catch (IOException e) {
-                    System.out.println("Connection error on page " + page + ": " + e.getMessage());
-                } catch (InterruptedException e) {
-                    System.out.println("Thread interrupted while processing page " + page);
-                    Thread.currentThread().interrupt();
-                } catch (Exception e) {
-                    System.out.println("Unexpected error on page " + page + ": " + e.getMessage());
-                }
-            });
+                });
+            }
         }
-        //}
+
         System.out.println(count);
         // ExecutorService'i kapat ve tüm görevlerin tamamlanmasını bekle
         executor.shutdown();
@@ -263,7 +273,7 @@ public class Basic {
         for (Book book : booksBatch) {
             BulkOperation operation = new BulkOperation.Builder()
                     .index(idx -> idx
-                    .index("turk-alman") // İndeks adı
+                    .index("bilgi") // İndeks adı
                     .document(book)
                     )
                     .build();
@@ -286,5 +296,13 @@ public class Basic {
         } catch (Exception e) {
             System.out.println("Bulk indexing failed: " + e.getMessage());
         }
+    }
+
+    private static String urlWithLibraries(int[] libIds) {
+        StringBuilder urlBuilder = new StringBuilder();
+        for (int id : libIds) {
+            urlBuilder.append("&tokat_library%5B%5D=").append(id);
+        }
+        return urlBuilder.toString();
     }
 }
