@@ -35,6 +35,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -42,31 +43,31 @@ import java.util.concurrent.TimeUnit;
 public class AjaxDataFetcher {
 
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?";
-    private static final int TOTAL_PAGE = 1031; // Toplam sayfa sayısı
-    private static final int[] LIBRARY_ID = {1031}; // Kütüphane ID'leri
+    private static final int TOTAL_PAGE = 138;
+    private static final int[] LIBRARY_ID = {841, 1307};
+    private static final int BATCH_SIZE = 100; // Toplu olarak göndereceğimiz kayıt sayısı
 
     public static void main(String[] args) {
         OkHttpClient client = new OkHttpClient.Builder()
-                .retryOnConnectionFailure(true) // Bağlantı hatalarında tekrar dene
+                .retryOnConnectionFailure(true)
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS) // Yanıt okuma zaman aşımı
+                .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
 
-        // Elasticsearch'e bağlan
         RestClient restClient = RestClient.builder(new HttpHost("localhost", 9200)).build();
         ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
         ElasticsearchClient elasticsearchClient = new ElasticsearchClient(transport);
 
-        // ExecutorService ile paralel işleme için iş parçacıkları havuzu
         ExecutorService executor = Executors.newFixedThreadPool(10);
+        List<BulkOperation> batchOperations = Collections.synchronizedList(new ArrayList<>()); // Toplu işlemler için liste
 
         try {
             for (int currentPage = 1; currentPage <= TOTAL_PAGE; currentPage++) {
                 int finalCurrentPage = currentPage;
-                executor.submit(() -> fetchPageData(finalCurrentPage, client, elasticsearchClient));
+                executor.submit(() -> fetchPageData(finalCurrentPage, client, elasticsearchClient, batchOperations));
                 try {
-                    Thread.sleep(200);  // İstekler arasında 200 ms gecikme
+                    Thread.sleep(200);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -76,11 +77,15 @@ public class AjaxDataFetcher {
             executor.shutdown();
             executor.awaitTermination(1, TimeUnit.HOURS);
 
+            // Kalan işlemleri topluca gönder
+            if (!batchOperations.isEmpty()) {
+                sendBulkRequest(elasticsearchClient, batchOperations);
+            }
+
         } catch (InterruptedException e) {
             System.out.println("İşlemler kesildi: " + e.getMessage());
         } finally {
             try {
-                // Elasticsearch bağlantılarını kapat
                 transport.close();
                 restClient.close();
             } catch (IOException e) {
@@ -89,16 +94,15 @@ public class AjaxDataFetcher {
         }
     }
 
-    // Sayfa verilerini çeken ve işleyen metod
-    private static void fetchPageData(int currentPage, OkHttpClient client, ElasticsearchClient elasticsearchClient) {
+    private static void fetchPageData(int currentPage, OkHttpClient client, ElasticsearchClient elasticsearchClient, List<BulkOperation> batchOperations) {
         String libraries = urlWithLibraries(LIBRARY_ID);
         Request request = new Request.Builder()
-                .url(BASE_URL + "cwid=2&keyword=9%2A&tokat_search_field=1" + libraries + "&order=0&ts=1729280178&page=" + currentPage)
+                .url(BASE_URL + "cwid=2&keyword=8%2A&tokat_search_field=1" + libraries + "&order=0&ts=1729280178&page=" + currentPage)
                 .build();
 
-        int maxRetries = 3; // Maksimum tekrar sayısı
-        int retryCount = 0; // Şu ana kadar kaç kez denendiğini tutan sayaç
-        long retryDelay = 4000; // Her başarısız denemede bekleme süresi (milisaniye cinsinden)
+        int maxRetries = 4;
+        int retryCount = 0;
+        long retryDelay = 4000;
 
         while (retryCount < maxRetries) {
             try (Response response = client.newCall(request).execute()) {
@@ -130,47 +134,45 @@ public class AjaxDataFetcher {
                                 .setPrettyPrinting()
                                 .disableHtmlEscaping()
                                 .create();
-                        List<BulkOperation> operations = new ArrayList<>();
-                        for (JsonElement book : books) {
-                            Map<String, Object> dataMap = gson.fromJson(book, HashMap.class);
-                            operations.add(BulkOperation.of(b -> b
-                                    .index(i -> i
-                                    .index("enes") // Elasticsearch indeks adı
-                                    .document(dataMap)
-                                    )));
-                        }
-                        if (!operations.isEmpty()) {
-                            sendBulkRequest(elasticsearchClient, operations);
+                        synchronized (batchOperations) {
+                            for (JsonElement book : books) {
+                                Map<String, Object> dataMap = gson.fromJson(book, HashMap.class);
+                                batchOperations.add(BulkOperation.of(b -> b
+                                        .index(i -> i
+                                        .index("balikesir")
+                                        .document(dataMap))));
+                            }
+
+                            // Eğer batch büyüklüğü sınırı aşıldıysa Elasticsearch'e gönder
+                            if (batchOperations.size() >= BATCH_SIZE) {
+                                sendBulkRequest(elasticsearchClient, new ArrayList<>(batchOperations));
+                                batchOperations.clear(); // Gönderilen batch'i temizle
+                            }
                         }
                     } else {
                         System.out.println("Div with id 'search_results' not found on page " + currentPage);
                     }
-                    break; // Başarılı olursa döngüyü kır
+                    break;
                 } else {
                     System.out.println("Request failed: " + response.code() + " on page " + currentPage);
                 }
             } catch (IOException e) {
-                System.out.println("Veri çekme sırasında hata (deneme " + (retryCount + 1) + "): " + e.getMessage());
-
-                // Eğer maksimum deneme sayısına ulaşılmadıysa tekrar dene
                 if (retryCount < maxRetries - 1) {
                     try {
-                        Thread.sleep(retryDelay); // Bekleme süresi
+                        Thread.sleep(retryDelay);
                     } catch (InterruptedException interruptedException) {
-                        System.out.println("Bekleme sırasında hata: " + interruptedException.getMessage());
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
-
-            retryCount++; // Her başarısız denemeden sonra sayaç artırılır
+            retryCount++;
         }
 
         if (retryCount == maxRetries) {
-            System.out.println("Veri çekme işlemi başarısız oldu ve maksimum deneme sayısına ulaşıldı.");
+            System.out.println("Veri çekme işlemi başarısız oldu ve maksimum deneme sayısına ulaşıldı - Sayfa: " + currentPage);
         }
     }
 
-    // Kütüphane ID'lerini URL'ye ekleyen metod
     private static String urlWithLibraries(int[] libIds) {
         StringBuilder urlBuilder = new StringBuilder();
         for (int id : libIds) {
@@ -179,7 +181,6 @@ public class AjaxDataFetcher {
         return urlBuilder.toString();
     }
 
-    // Elasticsearch'e bulk request gönderen metod
     private static void sendBulkRequest(ElasticsearchClient client, List<BulkOperation> operations) {
         try {
             BulkRequest bulkRequest = BulkRequest.of(b -> b.operations(operations));
@@ -192,8 +193,6 @@ public class AjaxDataFetcher {
                         System.out.println("Hata: " + item.error());
                     }
                 });
-            } else {
-                //System.out.println(operations.size() + " kayıt başarıyla Elasticsearch'e gönderildi.");
             }
         } catch (ElasticsearchException e) {
             System.out.println("Bulk işlemi sırasında hata: " + e.getMessage());
