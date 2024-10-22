@@ -1,6 +1,8 @@
 com\mycompany\kist\project\basic.class
-com\mycompany\kist\project\WebDriverPool.class
+com\mycompany\kist\project\RabbitMQProducer.class
+com\mycompany\kist\project\RabbitMQConsumer.class
 com\mycompany\kist\project\WebScraper.class
-com\mycompany\kist\project\AjaxDataFetcher.class
 com\mycompany\kist\project\Book.class
+com\mycompany\kist\project\WebDriverPool.class
+com\mycompany\kist\project\AjaxDataFetcher.class
 com\mycompany\kist\project\DynamicWebScraper.class

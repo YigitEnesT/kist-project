@@ -56,6 +56,12 @@
             <artifactId>okhttp</artifactId>
             <version>4.12.0</version> <!-- En son sürümü kontrol edin -->
         </dependency>
+        <dependency>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
+            <version>5.21.0</version>
+        </dependency>
+
 
 
         <!-- Jackson Databind -->
@@ -85,6 +91,12 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>7.17.0</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+            <version>9.0.0</version>
             <type>jar</type>
         </dependency>
     </dependencies>
