@@ -22,7 +22,7 @@ public class RabbitMQConsumer {
 
     private final static String QUEUE_NAME = "library_data_queue";
     private final ElasticsearchClient elasticsearchClient;
-    int count = 1;
+    int count = 0;
 
     public RabbitMQConsumer() {
         RestClient restClient = RestClient.builder(new HttpHost("localhost", 9200)).build();
@@ -74,7 +74,7 @@ public class RabbitMQConsumer {
             // Her bir kitabı ayrı ayrı Elasticsearch'e indexle
             for (Map<String, Object> book : books) {
                 IndexRequest<Map<String, Object>> indexRequest = IndexRequest.of(i -> i
-                        .index("ege") // İndex ismini belirtiyoruz
+                        .index("firat-9") // İndex ismini belirtiyoruz
                         .document(book) // JSON verisini ekliyoruz
                 );
 
