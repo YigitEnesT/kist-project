@@ -17,12 +17,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 
-public class OptimizedAjaxDataFetcher {
+public class AjaxDataFetcher {
 
     private static final String BASE_URL = "https://www.toplukatalog.gov.tr/?";
-    private static final int TOTAL_PAGE = 5398;
+    private static final int TOTAL_PAGE = 5398; // Sayfa sayısı, hedef web sitesindeki ile eşit olmalı.
     private static final String KEYWORD = "2";
-    private static final int[] LIBRARY_ID = {39, 40, 41, 1290};
+    private static final int[] LIBRARY_ID = {39, 40, 41, 1290}; // İstenilen kütüphanelerin idleri.
     private static final List<Integer> failedPages = new ArrayList<>();
 
     public static void main(String[] args) {

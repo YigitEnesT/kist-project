@@ -52,7 +52,6 @@ public class RabbitMQConsumer {
                 channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> {
                 });
 
-                // Ana iş parçacığını durdurma mekanizması (örneğin bir sinyal ile)
                 while (true) {
                     Thread.sleep(5000); // Her 5 saniyede bir kontrol et
                     if (channel.messageCount(QUEUE_NAME) == 0) {
@@ -67,7 +66,6 @@ public class RabbitMQConsumer {
 
     private void processBooks(String message) {
         try {
-            // Mesajı bir JSON dizisi olarak parse et
             ObjectMapper objectMapper = new ObjectMapper();
             List<Map<String, Object>> books = objectMapper.readValue(message, List.class);
 
